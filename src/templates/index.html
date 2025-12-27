@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Archive Processor</title>
+    <link rel="stylesheet" href="../static/index.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Archive Image Converter</h1>
+        <p class="subtitle">Bulk Convert Archive images and apply metadata</p>
+        
+        <form id="processForm">
+            <div class="section-title">Folders</div>
+
+            <div class="form-group">
+                <label for="archive">Input Archive Folder <span class="required">*</span></label>
+                <input type="text" id="archive" name="archive" required 
+                       placeholder="/path/to/input/archive">
+            </div>
+
+            <div class="form-group">
+                <label for="outputDir">Output Folder <span class="required">*</span></label>
+                <input type="text" id="outputDir" name="outputDir" required 
+                       placeholder="/path/to/output">
+            </div>
+
+            <div class="form-group">
+                <label for="logsDir">Logs Directory (optional)</label>
+                <input type="text" id="logsDir" name="logsDir" 
+                       placeholder="logs (default)">
+            </div>
+
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="licenseOnly" name="licenseOnly">
+                <label for="licenseOnly" style="margin: 0;">License-only mode (skip conversion)</label>
+            </div>
+
+            <div class="section-title">Image Options</div>
+
+            <div class="form-group">
+                <label for="quality">JPEG Quality (1-100)</label>
+                <input type="number" id="quality" name="quality" min="1" max="100" value="95">
+            </div>
+
+            <div class="form-group">
+                <label for="rotate">Rotation (degrees)</label>
+                <input type="number" id="rotate" name="rotate" value="0">
+            </div>
+
+            <div class="section-title">License Metadata (Optional)</div>
+
+            <div class="form-group">
+                <label for="creator">Creator / Author</label>
+                <input type="text" id="creator" name="creator" placeholder="John Doe">
+            </div>
+
+            <div class="form-group">
+                <label for="credit">Credit Line</label>
+                <input type="text" id="credit" name="credit" placeholder="Photo by John Doe">
+            </div>
+
+            <div class="form-group">
+                <label for="copyright">Copyright Holder</label>
+                <input type="text" id="copyright" name="copyright" placeholder="John Doe Photography">
+            </div>
+
+            <div class="form-group">
+                <label for="usageTerms">Usage Terms</label>
+                <input type="text" id="usageTerms" name="usageTerms" 
+                       placeholder="All rights reserved">
+            </div>
+
+            <div class="form-group">
+                <label for="licenseUrl">License URL</label>
+                <input type="text" id="licenseUrl" name="licenseUrl" 
+                       placeholder="https://creativecommons.org/licenses/by/4.0/">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" id="submitBtn">Start Processing</button>
+            </div>
+        </form>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        document.getElementById('processForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const status = document.getElementById('status');
+            
+            submitBtn.disabled = true;
+            status.className = 'processing';
+            status.style.display = 'block';
+            status.innerHTML = '⏳ Processing... Please wait.';
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            data.licenseOnly = document.getElementById('licenseOnly').checked;
+            
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    status.className = 'success';
+                    status.innerHTML = `✅ Success!<div class="log-output">${result.log}</div>`;
+                } else {
+                    status.className = 'error';
+                    status.innerHTML = `❌ Error: ${result.error}<div class="log-output">${result.log || ''}</div>`;
+                }
+            } catch (error) {
+                status.className = 'error';
+                status.innerHTML = `❌ Network error: ${error.message}`;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
