@@ -1,34 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-PyInstaller spec file for ARCON
-Builds a standalone .exe for Windows with all dependencies bundled
-"""
-
-import sys
-from pathlib import Path
-
-block_cipher = None
-
 a = Analysis(
-    ['arcon.py'],
+    ['src/app.py'],
     pathex=[],
     binaries=[],
     datas=[
-        ('src/templates', 'src/templates'),
-        ('src/static', 'src/static'),
+        ('src/templates', 'templates'),
+        ('src/static', 'static'),
     ],
-    hiddenimports=['flask', 'werkzeug'],
+    hiddenimports=['flask', 'flask.cli'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludedimports=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 exe = EXE(
     pyz,

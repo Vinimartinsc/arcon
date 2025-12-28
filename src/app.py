@@ -9,9 +9,13 @@ import os
 import sys
 import subprocess
 import argparse
+import logging
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify
+import webbrowser
+from threading import Timer
+
 # import threading
 
 app = Flask(__name__)
@@ -245,7 +249,8 @@ def run_cli():
     parser.add_argument('--usage-terms', default='', help='License / usage terms')
     parser.add_argument('--license-url', default='', help='License URL')
     
-    args = parser.parse_args()
+    # Remove the '--cli' argument before parsing
+    args = parser.parse_args(sys.argv[2:])
     
     try:
         processor = ImageProcessor(
@@ -273,14 +278,21 @@ def run_cli():
 def run_web():
     import logging
     log = logging.getLogger('werkzeug')
+    log.disabled = True
     log.setLevel(logging.ERROR)
+
+    cli = sys.modules['flask.cli']
+    cli.show_server_banner = lambda *x: None
+
     
-    print("Starting ARCON...")
+    print("Starting Archive Conversion Tool...")
     print("Open your browser: http://localhost:3932")
+    Timer(1, webbrowser.open_new, args=("http://localhost:3932",)).start()
+    print("\nTo stop the server, press Ctrl+C")
     app.run(host='0.0.0.0', port=3932, debug=False, use_reloader=False)
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == '--ui':
-        run_web()
-    else:
+    if len(sys.argv) > 1 and sys.argv[1] == '--':
         run_cli()
+    else:
+        run_web()

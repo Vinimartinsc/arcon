@@ -1,6 +1,8 @@
 # ARCON – Ferramenta de Conversão de Acervos
 
-_This documentation is also available in [English](./README.md)._
+_This documentation is also available in [English](../readme.md)._
+
+_to build this project refer to [Build](./BUILD.md)
 
 Ao digitalizar um acervo físico, é fundamental preservar um gêmeo digital de alta qualidade, comparável ao material original. Algumas câmeras digitais capturam imagens em formatos RAW, que preservam o máximo de informações registradas pelo sensor da câmera, incluindo metadados técnicos detalhados. Por esse motivo, arquivos RAW podem ser utilizados em acervos digitais e são frequentemente considerados adequados para perícias forenses.
 

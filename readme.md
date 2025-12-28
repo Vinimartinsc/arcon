@@ -1,6 +1,8 @@
 # ARCON – Archive Conversion Tool
 
-_Este documento está também disponível em [Portuguese](./readme.pt.md)._
+_Este documento está também disponível em [Portuguese](./docs/readme.pt.md)._
+
+_to build this project refer to [Build](./docs/BUILD.md)
 
 When digitizing a physical archive, it is essential to preserve a high-quality digital twin of the original material. Some digital cameras capture images in RAW formats, which preserve the maximum amount of information recorded by the camera sensor, including detailed technical metadata. For this reason, RAW files can be used in digital archives and are often considered suitable for forensic examinations.
 
