@@ -1,33 +1,73 @@
-# ARCON – Archive Conversion Tool
+# ARCON – Ferramenta de Conversão de Acervos
 
-_Este documento está também disponível em [Portuguese](./docs/readme.pt.md)._
+_This document is available in [Inglês](../README.md)._
 
-_to build this project refer to [Build](./docs/BUILD.md)
+## Sumário
 
-When digitizing a physical archive, it is essential to preserve a high-quality digital twin of the original material. Some digital cameras capture images in RAW formats, which preserve the maximum amount of information recorded by the camera sensor, including detailed technical metadata. For this reason, RAW files can be used in digital archives and are often considered suitable for forensic examinations.
+- O que é o ARCON?
+- Principais Funcionalidades
+- Sobre o Projeto
+- Primeiros Passos
+- Uso
+- Status do Projeto
+- Licença
 
-However, RAW formats are not appropriate for public distribution, as most online platforms and social media services do not offer native support for them. This makes conversion to other formats that are widely accepted on the internet necessary in order to facilitate access to and dissemination of the content.
+## O que é o ARCON?
 
-With the dissemination of digitized archives, concerns arise regarding licensing, authorship, copyright, and proper use of the content, especially in light of advances in generative artificial intelligence technologies, which make it possible to create versions that modify the original content of documents. One strategy to mitigate misuse, including use by crawlers and AI systems, of archives distributed on the internet is the incorporation of licensing, ownership, and AI-usage restriction metadata directly into the image files.
+O ARCON é uma ferramenta **open-source**, independente de plataforma, voltada ao processamento de imagens e projetada para apoiar fluxos de trabalho de digitalização arquivística, combinando conversão de formato de imagem e incorporação de metadados em um único processo.
 
-## What is ARCON?
+## Principais Funcionalidades
 
-**ARCON** is a platform-independent archive conversion tool designed to support archival digitization workflows by combining format conversion and metadata application into a single process.
+- Preservação da estrutura hierárquica original de pastas  
+- Conversão em lote de imagens RAW para JPEG  
+- Incorporação de metadados de licenciamento e autoria  
+- Inclusão de metadados para desencorajar o uso por sistemas de IA  
+- Interface baseada em navegador e modo de linha de comando (CLI)  
 
-ARCON was developed to:
+## Sobre o Projeto
 
-- Preserve the original hierarchical structure of the digitized archive  
-- Batch-convert images into a defined output format  
-- Embed licensing, authorship, and copyright metadata directly into the converted files  
-- Add metadata aimed at limiting the use of content by AI systems  
+Ao digitalizar um acervo físico, é fundamental preservar um gêmeo digital de alta qualidade, o mais fiel possível ao material original. Muitas câmeras digitais capturam imagens em formatos RAW, também conhecidos como “Negativos Digitais”. Isso ocorre porque o formato RAW retém uma grande quantidade de informações do sensor da câmera, incluindo metadados técnicos detalhados.
 
-## Why not use existing conversion tools?
+Por esse motivo, arquivos RAW podem ser utilizados em processos profissionais de digitalização arquivística e podem ser considerados adequados para fins forenses e probatórios.
 
-Most existing bulk conversion tools:
+No entanto, os formatos RAW não são apropriados para a disseminação pública. A maioria das plataformas web e redes sociais não oferece suporte nativo a esses formatos, o que limita o acesso e o reuso do conteúdo. Assim, acervos destinados ao acesso online normalmente exigem a conversão para formatos amplamente aceitos, como o JPEG.
 
-- Are not designed for archival workflows  
-- Do not preserve the hierarchical folder structure and original folder names  
-- Do not integrate image conversion and licensing metadata application into a single workflow  
-- Do not implement techniques aimed at restricting use by AI systems  
+Paralelamente, a publicação de acervos digitalizados levanta preocupações relacionadas a licenciamento, autoria, direitos autorais e uso adequado, especialmente no contexto dos avanços recentes em sistemas de inteligência artificial generativa.
 
-ARCON was created to address these gaps, with a focus on archival integrity, controlled dissemination, and responsible use of content.
+O ARCON integra a conversão de formatos de imagem e a incorporação de metadados justamente para atender a esse propósito.
+
+## Primeiros Passos
+
+### Instalação
+
+```sh
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Build
+
+```sh
+pyinstaller arcon.spec
+```
+
+## Uso
+
+```sh
+./arcon
+```
+
+### CLI
+
+```sh
+./arcon -- -h
+```
+
+## Status do Projeto
+
+Em desenvolvimento ativo.
+
+## Licença
+
+A definir.
