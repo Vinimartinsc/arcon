@@ -8,9 +8,6 @@ _Este documento também está disponível em [Português](./docs/readme.pt.md)._
 - Key Features
 - About the Project
 - Getting Started
-- Usage
-- Project Status
-- License
 
 ## What is ARCON?
 
@@ -61,11 +58,3 @@ pyinstaller arcon.spec
 ```sh
 ./arcon -- -h
 ```
-
-## Project Status
-
-Active development.
-
-## License
-
-To be defined.
