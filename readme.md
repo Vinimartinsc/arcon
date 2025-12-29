@@ -1,6 +1,6 @@
 # ARCON – Ferramenta de Conversão de Acervos
 
-_This document is available in [Inglês](../README.md)._
+_This document is available in [English](./docs/readme.en.md)._
 
 ## Sumário
 

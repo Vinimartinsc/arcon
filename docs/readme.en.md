@@ -1,6 +1,6 @@
 # ARCON – Archive Conversion Tool
 
-_Este documento também está disponível em [Português](./docs/readme.pt.md)._
+_Este documento também está disponível em [Português](../readme.md)._
 
 ## Table of Contents
 
