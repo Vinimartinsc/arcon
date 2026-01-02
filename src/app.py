@@ -10,6 +10,7 @@ import sys
 import subprocess
 import argparse
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify
@@ -50,7 +51,7 @@ class ImageProcessor:
         missing = []
         
         for cmd in deps:
-            if subprocess.run(['which', cmd], capture_output=True).returncode != 0:
+            if shutil.which(cmd) is None:
                 missing.append(cmd)
         
         if missing:
@@ -280,7 +281,7 @@ def run_web():
     log = logging.getLogger('werkzeug')
     log.disabled = True
     log.setLevel(logging.ERROR)
-
+ 
     cli = sys.modules['flask.cli']
     cli.show_server_banner = lambda *x: None
 
