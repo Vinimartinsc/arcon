@@ -45,26 +45,27 @@ jobs:
       - name: Build executable with PyInstaller
         run: |
           pyinstaller arcon.spec
-          mkdir -p dist
 
       - name: Prepare artifacts (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          ls -la build/arcon/
-          cp build/arcon/arcon dist/arcon-linux
-          chmod +x dist/arcon-linux
+          ls -la dist/
+          mkdir -p artifacts
+          cp dist/arcon artifacts/arcon-linux
+          chmod +x artifacts/arcon-linux
 
       - name: Prepare artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
-          dir build\arcon\
-          copy build\arcon\arcon.exe dist\arcon-windows.exe
+          dir dist\
+          mkdir artifacts
+          copy dist\arcon.exe artifacts\arcon-windows.exe
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/*
+          path: artifacts/*
           retention-days: 1
 
   draft-release:
