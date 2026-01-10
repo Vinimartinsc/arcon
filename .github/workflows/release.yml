@@ -1,0 +1,166 @@
+name: Release (Semantic Versioning + Multi-Platform)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact-name: arcon-linux
+            asset-extension: ""
+          - os: windows-latest
+            artifact-name: arcon-windows
+            asset-extension: .exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller arcon.spec
+          mkdir -p dist
+
+      - name: Prepare artifacts (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          ls -la build/arcon/
+          cp build/arcon/arcon dist/arcon-linux
+          chmod +x dist/arcon-linux
+
+      - name: Prepare artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dir build\arcon\
+          copy build\arcon\arcon.exe dist\arcon-windows.exe
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: dist/*
+          retention-days: 1
+
+  draft-release:
+    name: Create Draft Release
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.semantic.outputs.new_release_created }}
+      release_version: ${{ steps.semantic.outputs.new_release_version }}
+      release_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install semantic-release plugins
+        run: |
+          npm install --save-dev \
+            semantic-release \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/github
+
+      - name: Run semantic-release (draft mode)
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx semantic-release --ci=false || true
+          
+          # Extract version info from git tags
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "new_release_version=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
+          echo "new_release_git_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "new_release_created=true" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create draft release with assets
+        if: steps.semantic.outputs.new_release_created == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.semantic.outputs.new_release_version }}"
+          TAG="${{ steps.semantic.outputs.new_release_git_tag }}"
+          
+          # Create draft release
+          gh release create "${TAG}" \
+            --title "Release ${VERSION}" \
+            --draft \
+            --generate-notes \
+            artifacts/arcon-*/* || true
+          
+          echo "📋 Draft release created: ${TAG}"
+          echo "⏳ Waiting for manual approval to publish..."
+
+  publish-release:
+    name: Publish Release
+    needs: draft-release
+    runs-on: ${{ matrix.os }}
+    if: needs.draft-release.outputs.release_created == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        run: |
+          echo "Using GITHUB_TOKEN for authentication"
+        shell: bash
+
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          DRAFT_RELEASE=$(gh release list --draft --limit 1 --json tagName -q '.[0].tagName')
+          
+          if [ -n "$DRAFT_RELEASE" ]; then
+            gh release edit "$DRAFT_RELEASE" --draft=false
+            echo "✅ Published release: $DRAFT_RELEASE"
+          else
+            echo "⚠️ No draft release found"
+          fi
