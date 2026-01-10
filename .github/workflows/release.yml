@@ -157,7 +157,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          DRAFT_RELEASE=$(gh release list --draft --limit 1 --json tagName -q '.[0].tagName')
+          DRAFT_RELEASE=$(gh release list --json tagName,isDraft --limit 50 -q '.[] | select(.isDraft==true) | .tagName' | head -1)
           
           if [ -n "$DRAFT_RELEASE" ]; then
             gh release edit "$DRAFT_RELEASE" --draft=false
