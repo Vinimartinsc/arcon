@@ -38,7 +38,46 @@ class ImageProcessor:
         self.usage_terms = usage_terms
         self.license_url = license_url
         
+        # Setup bundled binaries path
+        self.bundle_dir = self._get_bundle_dir()
+        self.dcraw_cmd = self._get_binary('dcraw')
+        self.convert_cmd = self._get_binary('magick')
+        self.exiftool_cmd = self._get_binary('exiftool')
+        
         self.log = []
+    
+    def _get_bundle_dir(self):
+        """Get the bundled binaries directory based on platform."""
+        # First check if running as PyInstaller executable
+        if getattr(sys, 'frozen', False):
+            base_path = Path(sys._MEIPASS)
+        else:
+            # Running as script - look for bundle relative to script location
+            base_path = Path(__file__).parent.parent
+        
+        if sys.platform == 'win32':
+            return base_path / 'bundle' / 'windows'
+        else:
+            return base_path / 'bundle' / 'unix'
+    
+    def _get_binary(self, cmd):
+        """Get the full path to a binary, preferring bundled version."""
+        bundled_binary = self.bundle_dir / cmd / cmd
+        
+        # For Windows, add .exe extension if not present
+        if sys.platform == 'win32' and not bundled_binary.suffix:
+            bundled_binary = self.bundle_dir / cmd / f"{cmd}.exe"
+        
+        # Use bundled binary if it exists, otherwise fall back to system PATH
+        if bundled_binary.exists():
+            return str(bundled_binary)
+        
+        # Fall back to system command
+        system_cmd = shutil.which(cmd)
+        if system_cmd:
+            return system_cmd
+        
+        return cmd  # Will fail later during execution if not found
         
     def log_message(self, msg):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -47,15 +86,18 @@ class ImageProcessor:
         print(log_line)
         
     def check_dependencies(self):
-        deps = ['dcraw', 'convert', 'exiftool', 'find', 'xargs']
+        """Verify all required binaries are available (bundled or system)."""
         missing = []
         
-        for cmd in deps:
-            if shutil.which(cmd) is None:
-                missing.append(cmd)
+        if not self.dcraw_cmd or (not self.bundle_dir.joinpath('dcraw/dcraw' if sys.platform != 'win32' else 'dcraw/dcraw.exe').exists() and not shutil.which('dcraw')):
+            missing.append('dcraw')
+        if not self.convert_cmd or (not self.bundle_dir.joinpath('magick/magick' if sys.platform != 'win32' else 'magick/magick.exe').exists() and not shutil.which('magick')):
+            missing.append('magick')
+        if not self.exiftool_cmd or (not self.bundle_dir.joinpath('exiftool/exiftool' if sys.platform != 'win32' else 'exiftool/exiftool.exe').exists() and not shutil.which('exiftool')):
+            missing.append('exiftool')
         
         if missing:
-            raise RuntimeError(f"Missing dependencies: {', '.join(missing)}")
+            raise RuntimeError(f"Missing dependencies: {', '.join(missing)}. Bundled in {self.bundle_dir}")
     
     def validate(self):
         if not self.archive.is_dir():
@@ -132,18 +174,16 @@ class ImageProcessor:
                     
                     try:
                         # dcraw conversion
-                        dcraw_cmd = ['dcraw', '-c', '-w', '-g', '2.2', '12.92', '-q', '3', '-H', '2', str(raw)]
+                        dcraw_cmd = [self.dcraw_cmd, '-c', '-w', '-g', '2.2', '12.92', '-q', '3', '-H', '2', str(raw)]
                         dcraw_proc = subprocess.Popen(dcraw_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                         
-                        # ImageMagick conversion
-                        convert_cmd = ['convert', '-']
+                        # ImageMagick conversion using magick
+                        convert_cmd = [self.convert_cmd, '-']
                         if self.rotate != 0:
                             convert_cmd.extend(['-rotate', str(self.rotate)])
                         convert_cmd.extend([
-                            '-colorspace', 'sRGB',
-                            '-sampling-factor', '4:4:4',
                             '-quality', str(self.quality),
-                            str(output_file)
+                            f'jpg:{output_file}'
                         ])
                         
                         convert_proc = subprocess.Popen(convert_cmd, stdin=dcraw_proc.stdout, 
@@ -153,7 +193,7 @@ class ImageProcessor:
                         _, convert_err = convert_proc.communicate()
                         
                         if convert_proc.returncode != 0:
-                            self.log_message(f"    ERROR: {convert_err.decode()}")
+                            self.log_message(f"    ERROR: {convert_err.decode(errors='replace')}")
                     
                     except Exception as e:
                         self.log_message(f"    ERROR: {str(e)}")
@@ -172,7 +212,7 @@ class ImageProcessor:
             self.log_message("No JPG files found to apply metadata")
             return
         
-        cmd = ['exiftool', '-overwrite_original']
+        cmd = [self.exiftool_cmd, '-overwrite_original']
         
         if self.creator:
             cmd.extend([f'-XMP-dc:Creator={self.creator}', f'-IPTC:By-line={self.creator}'])
@@ -281,7 +321,7 @@ def run_web():
     log = logging.getLogger('werkzeug')
     log.disabled = True
     log.setLevel(logging.ERROR)
- 
+
     cli = sys.modules['flask.cli']
     cli.show_server_banner = lambda *x: None
 

@@ -6,6 +6,8 @@ a = Analysis(
     datas=[
         ('src/templates', 'templates'),
         ('src/static', 'static'),
+        ('bundle/windows', 'bundle/windows'),
+        ('bundle/unix', 'bundle/unix'),
     ],
     hiddenimports=['flask', 'flask.cli'],
     hookspath=[],
