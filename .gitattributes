@@ -1,0 +1,27 @@
+# Mark bundle directory as vendored
+bundle/** linguist-vendored
+
+# Exclude build artifacts and distributions
+dist/** linguist-vendored
+build/** linguist-vendored
+
+# Mark spec file as vendored (PyInstaller config)
+*.spec linguist-vendored
+
+# Mark documentation as documentation
+*.md linguist-documentation
+docs/** linguist-documentation
+LICENSE linguist-documentation
+
+# Explicitly mark Python files as Python
+*.py linguist-language=Python
+src/**/*.py linguist-language=Python
+
+*.html linguist-language=html
+src/**/*.html linguist-language=html
+
+*.css linguist-language=css
+src/**/*.css linguist-language=css
+
+# Mark workflow files as vendored (GitHub Actions)
+.github/** linguist-vendored
