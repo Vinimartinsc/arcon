@@ -18,7 +18,7 @@ O ARCON é uma ferramenta **open-source**, independente de plataforma, voltada a
 - Preservação da estrutura hierárquica original de pastas  
 - Conversão em lote de imagens RAW para JPEG  
 - Incorporação de metadados de licenciamento e autoria  
-- Inclusão de metadados para desencorajar o uso por sistemas de IA  
+- Inclusão de metadados para desencorajar o uso por sistemas de IA  (Em implementação)
 - Interface baseada em navegador e modo de linha de comando (CLI)  
 
 ## Sobre o Projeto
