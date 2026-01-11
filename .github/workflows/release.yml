@@ -55,8 +55,9 @@ jobs:
           cp dist/arcon release/${{ matrix.artifact-name }}
           chmod +x release/${{ matrix.artifact-name }}
           
-          # Verify the binary works
-          ./release/${{ matrix.artifact-name }} --version || echo "Binary created"
+          # Verify the binary exists and is executable
+          ls -lh dist/arcon
+          file release/${{ matrix.artifact-name }}
           
           # Create checksum
           cd release
