@@ -151,53 +151,73 @@ class ImageProcessor:
         return '\n'.join(self.log)
     
     def process_images(self, base_public):
-        for dossier in self.archive.iterdir():
-            if not dossier.is_dir():
-                continue
+        # Detect structure: check if archive root has image files directly
+        root_has_images = any(
+            (list(self.archive.glob("*.NEF")) + list(self.archive.glob("*.nef")))
+        )
+        
+        if root_has_images:
+            # Simple structure: /dossier/image_files.NEF (archive root IS the dossier)
+            self.log_message(f"Processing Document: {self.archive.name}")
+            output_dir = base_public
+            output_dir.mkdir(parents=True, exist_ok=True)
             
-            self.log_message(f"Processing Dossier: {dossier.name}")
-            
-            for document in dossier.iterdir():
-                if not document.is_dir():
+            nef_files = list(self.archive.glob("*.NEF")) + list(self.archive.glob("*.nef"))
+            for raw in nef_files:
+                self._convert_raw_to_jpg(raw, output_dir)
+        else:
+            # Nested structure: /archive/dossier/document/image_files.NEF
+            for dossier in self.archive.iterdir():
+                if not dossier.is_dir():
                     continue
                 
-                self.log_message(f"  Processing Document: {document.name}")
+                self.log_message(f"Processing Dossier: {dossier.name}")
                 
-                output_dir = base_public / dossier.name / document.name
-                output_dir.mkdir(parents=True, exist_ok=True)
-                
-                nef_files = list(document.glob("*.NEF")) + list(document.glob("*.nef"))
-                
-                for raw in nef_files:
-                    output_file = output_dir / f"{raw.stem}.jpg"
-                    self.log_message(f"    Converting: {raw.name}")
+                for document in dossier.iterdir():
+                    if not document.is_dir():
+                        continue
                     
-                    try:
-                        # dcraw conversion
-                        dcraw_cmd = [self.dcraw_cmd, '-c', '-w', '-g', '2.2', '12.92', '-q', '3', '-H', '2', str(raw)]
-                        dcraw_proc = subprocess.Popen(dcraw_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        
-                        # ImageMagick conversion using magick
-                        convert_cmd = [self.convert_cmd, '-']
-                        if self.rotate != 0:
-                            convert_cmd.extend(['-rotate', str(self.rotate)])
-                        convert_cmd.extend([
-                            '-quality', str(self.quality),
-                            f'jpg:{output_file}'
-                        ])
-                        
-                        convert_proc = subprocess.Popen(convert_cmd, stdin=dcraw_proc.stdout, 
-                                                       stderr=subprocess.PIPE)
-                        dcraw_proc.stdout.close()
-                        
-                        _, convert_err = convert_proc.communicate()
-                        
-                        if convert_proc.returncode != 0:
-                            self.log_message(f"    ERROR: {convert_err.decode(errors='replace')}")
+                    self.log_message(f"  Processing Document: {document.name}")
                     
-                    except Exception as e:
-                        self.log_message(f"    ERROR: {str(e)}")
-    
+                    output_dir = base_public / dossier.name / document.name
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    nef_files = list(document.glob("*.NEF")) + list(document.glob("*.nef"))
+                    
+                    for raw in nef_files:
+                        self._convert_raw_to_jpg(raw, output_dir)
+
+    def _convert_raw_to_jpg(self, raw, output_dir):
+        """Helper method to convert a single RAW file to JPG."""
+        output_file = output_dir / f"{raw.stem}.jpg"
+        self.log_message(f"    Converting: {raw.name}")
+        
+        try:
+            # dcraw conversion
+            dcraw_cmd = [self.dcraw_cmd, '-c', '-w', '-g', '2.2', '12.92', '-q', '3', '-H', '2', str(raw)]
+            dcraw_proc = subprocess.Popen(dcraw_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # ImageMagick conversion using magick
+            convert_cmd = [self.convert_cmd, '-']
+            if self.rotate != 0:
+                convert_cmd.extend(['-rotate', str(self.rotate)])
+            convert_cmd.extend([
+                '-quality', str(self.quality),
+                f'jpg:{output_file}'
+            ])
+            
+            convert_proc = subprocess.Popen(convert_cmd, stdin=dcraw_proc.stdout, 
+                                        stderr=subprocess.PIPE)
+            dcraw_proc.stdout.close()
+            
+            _, convert_err = convert_proc.communicate()
+            
+            if convert_proc.returncode != 0:
+                self.log_message(f"    ERROR: {convert_err.decode(errors='replace')}")
+        
+        except Exception as e:
+            self.log_message(f"    ERROR: {str(e)}")
+
     def apply_metadata(self, base_public):
         if not any([self.creator, self.credit, self.copyright_name, 
                    self.usage_terms, self.license_url]):
