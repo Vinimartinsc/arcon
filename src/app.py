@@ -2,7 +2,7 @@
 """
 Image Archive Processor
 Converts RAW images and applies metadata
-Supports both CLI and web interface
+Supports both CLI and web interface with C2PA signing
 """
 
 import os
@@ -11,19 +11,26 @@ import subprocess
 import argparse
 import logging
 import shutil
+import json
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify
 import webbrowser
 from threading import Timer
 
-# import threading
+# Conditional C2PA import with graceful fallback
+try:
+    from c2pa import Builder, Signer, C2paSignerInfo, C2paSigningAlg, Reader
+    C2PA_AVAILABLE = True
+except ImportError:
+    C2PA_AVAILABLE = False
 
 app = Flask(__name__)
 
 class ImageProcessor:
     def __init__(self, archive, output_dir, logs_dir="logs", quality=95, rotate=0, license_only=False,
-                 creator="", credit="", copyright_name="", usage_terms="", license_url=""):
+                 creator="", credit="", copyright_name="", usage_terms="", license_url="",
+                 sign_images=False, cert_path="", private_key_path="", signing_alg="es256"):
         self.archive = Path(archive)
         self.output_dir = Path(output_dir)
         self.logs_dir = Path(logs_dir)
@@ -37,6 +44,12 @@ class ImageProcessor:
         self.copyright_name = copyright_name
         self.usage_terms = usage_terms
         self.license_url = license_url
+        
+        # C2PA signing parameters
+        self.sign_images = sign_images
+        self.cert_path = Path(cert_path) if cert_path else None
+        self.private_key_path = Path(private_key_path) if private_key_path else None
+        self.signing_alg = signing_alg
         
         # Setup bundled binaries path
         self.bundle_dir = self._get_bundle_dir()
@@ -86,7 +99,7 @@ class ImageProcessor:
         print(log_line)
         
     def check_dependencies(self):
-        """Verify all required binaries are available (bundled or system)."""
+        """Verify all required binaries are available."""
         missing = []
         
         if not self.dcraw_cmd or (not self.bundle_dir.joinpath('dcraw/dcraw' if sys.platform != 'win32' else 'dcraw/dcraw.exe').exists() and not shutil.which('dcraw')):
@@ -98,6 +111,18 @@ class ImageProcessor:
         
         if missing:
             raise RuntimeError(f"Missing dependencies: {', '.join(missing)}. Bundled in {self.bundle_dir}")
+        
+        # Check C2PA signing requirements
+        if self.sign_images:
+            if not C2PA_AVAILABLE:
+                raise RuntimeError(
+                    "C2PA library not installed. Install with: pip install c2pa-python\n"
+                    "See: https://github.com/contentauth/c2pa-python"
+                )
+            if not self.cert_path or not self.cert_path.exists():
+                raise RuntimeError(f"C2PA certificate not found: {self.cert_path}")
+            if not self.private_key_path or not self.private_key_path.exists():
+                raise RuntimeError(f"C2PA private key not found: {self.private_key_path}")
     
     def validate(self):
         if not self.archive.is_dir():
@@ -121,6 +146,9 @@ class ImageProcessor:
         self.log_message(f"Image Quality: {self.quality}")
         self.log_message(f"Image Rotation: {self.rotate}")
         self.log_message(f"License Only: {self.license_only}")
+        self.log_message(f"C2PA Signing: {self.sign_images}")
+        if self.sign_images and C2PA_AVAILABLE:
+            self.log_message(f"C2PA Algorithm: {self.signing_alg}")
         self.log_message("=" * 50)
         
         archive_name = self.archive.name
@@ -138,6 +166,9 @@ class ImageProcessor:
             self.log_message("License-only mode — skipping image conversion")
         
         self.apply_metadata(base_public)
+        
+        if self.sign_images:
+            self.sign_all_images(base_public)
         
         # Save log to file
         with open(log_file, 'w') as f:
@@ -259,6 +290,188 @@ class ImageProcessor:
         except Exception as e:
             self.log_message(f"ERROR: {str(e)}")
 
+    def sign_all_images(self, base_public):
+        """Sign all JPG images with C2PA credentials."""
+        if not C2PA_AVAILABLE:
+            self.log_message("ERROR: C2PA library not available, skipping signing")
+            return
+            
+        self.log_message("Signing images with C2PA credentials...")
+        
+        jpg_files = list(base_public.rglob("*.jpg")) + list(base_public.rglob("*.JPG"))
+        
+        if not jpg_files:
+            self.log_message("No JPG files found to sign")
+            return
+        
+        signed_count = 0
+        error_count = 0
+        
+        for jpg_file in jpg_files:
+            try:
+                self._sign_single_image(jpg_file)
+                signed_count += 1
+            except Exception as e:
+                self.log_message(f"    ERROR signing {jpg_file.name}: {str(e)}")
+                error_count += 1
+        
+        self.log_message(f"C2PA signing complete: {signed_count} signed, {error_count} errors")
+
+    def _sign_single_image(self, image_path):
+        """Sign a single image with C2PA using correct API."""
+        self.log_message(f"    Signing: {image_path.name}")
+        
+        # Create backup first for safety
+        backup_path = image_path.parent / f"{image_path.stem}_backup_temp.jpg"
+        temp_output = image_path.parent / f"{image_path.stem}_signed_temp.jpg"
+        
+        try:
+            # Backup original
+            shutil.copy2(str(image_path), str(backup_path))
+            
+            # Build manifest
+            manifest_json = self._build_manifest_json(image_path)
+            
+            # Read certificate and private key as BYTES (official API expects bytes)
+            with open(self.cert_path, 'rb') as cert_file:
+                cert_data = cert_file.read()
+            
+            with open(self.private_key_path, 'rb') as key_file:
+                key_data = key_file.read()
+            
+            # Map algorithm string to C2paSigningAlg enum
+            alg_map = {
+                'es256': C2paSigningAlg.ES256,
+                'es384': C2paSigningAlg.ES384,
+                'es512': C2paSigningAlg.ES512,
+                'ps256': C2paSigningAlg.PS256,
+                'ps384': C2paSigningAlg.PS384,
+                'ps512': C2paSigningAlg.PS512,
+                'ed25519': C2paSigningAlg.ED25519,
+            }
+            
+            signing_alg = alg_map.get(self.signing_alg.lower(), C2paSigningAlg.ES256)
+            
+            # Create signer info using POSITIONAL arguments in this exact order:
+            # C2paSignerInfo(alg, sign_cert, private_key, ta_url)
+            signer_info = C2paSignerInfo(
+                signing_alg,              # 1st: alg
+                cert_data,                # 2nd: sign_cert (as bytes)
+                key_data,                 # 3rd: private_key (as bytes)
+                'http://timestamp.digicert.com'  # 4th: ta_url
+            )
+            
+            # Create signer from signer info
+            signer = Signer.from_info(signer_info)
+            
+            # Create builder and sign using STREAMS (not file paths)
+            # The official API uses streams with open() in binary mode
+            with Builder(manifest_json) as builder:
+                with open(image_path, 'rb') as source_file:
+                    with open(temp_output, 'w+b') as dest_file:
+                        # Sign with streams - mime_type, source, dest
+                        manifest_bytes = builder.sign(
+                            signer, 
+                            "image/jpeg", 
+                            source_file, 
+                            dest_file
+                        )
+            
+            # If successful, replace original with signed version
+            if temp_output.exists():
+                shutil.move(str(temp_output), str(image_path))
+                self.log_message(f"      ✓ Successfully signed")
+            else:
+                raise RuntimeError("Signing failed - no output file created")
+            
+            # Remove backup
+            if backup_path.exists():
+                backup_path.unlink()
+            
+        except Exception as e:
+            # Restore from backup on failure
+            if backup_path.exists():
+                if temp_output.exists():
+                    temp_output.unlink()
+                shutil.move(str(backup_path), str(image_path))
+            raise e
+
+    def _build_manifest_json(self, image_path):
+        """Build C2PA manifest JSON for an image."""
+        manifest = {
+            "claim_generator": "Image Archive Processor/1.0",
+            "title": image_path.name,
+            "assertions": []
+        }
+        
+        # Add creative work assertion with metadata
+        creative_work = {}
+        
+        if self.creator:
+            creative_work["author"] = [{"name": self.creator}]
+        
+        if self.copyright_name:
+            creative_work["copyright"] = {
+                "notice": self.copyright_name,
+                "year": self.year
+            }
+        
+        if self.license_url:
+            creative_work["license"] = self.license_url
+        
+        if self.usage_terms:
+            creative_work["usage_terms"] = self.usage_terms
+        
+        if self.credit:
+            creative_work["credit_line"] = self.credit
+        
+        # Only add creative work assertion if we have metadata
+        if creative_work:
+            manifest["assertions"].append({
+                "label": "stds.schema-org.CreativeWork",
+                "data": {
+                    "@context": "https://schema.org",
+                    "@type": "ImageObject",
+                    **creative_work
+                }
+            })
+        
+        # Add AI no train assertion
+        manifest["assertions"].append({
+            "label": "c2pa.training-mining",
+            "data": {
+                "entries": {
+                    "c2pa.ai_generative_training": {
+                        "use": "notAllowed"
+                    },
+                    "c2pa.ai_inference": {
+                        "use": "notAllowed"
+                    },
+                    "c2pa.ai_training": {
+                        "use": "notAllowed"
+                    },
+                    "c2pa.data_mining": {
+                        "use": "notAllowed"
+                    }
+                }
+            }
+        })
+
+        # Add actions assertion (simpler structure)
+        manifest["assertions"].append({
+            "label": "c2pa.actions",
+            "data": {
+                "actions": [{
+                    "action": "c2pa.edited",
+                    "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+                    "softwareAgent": "Image Archive Processor/1.0"
+                }]
+            }
+        })
+        
+        return json.dumps(manifest, indent=2)
+
+
 # Flask routes
 @app.route('/')
 def index():
@@ -266,6 +479,7 @@ def index():
 
 @app.route('/process', methods=['POST'])
 def process():
+    processor = None
     try:
         data = request.json
         
@@ -280,7 +494,11 @@ def process():
             credit=data.get('credit', ''),
             copyright_name=data.get('copyright', ''),
             usage_terms=data.get('usageTerms', ''),
-            license_url=data.get('licenseUrl', '')
+            license_url=data.get('licenseUrl', ''),
+            sign_images=data.get('signImages', False),
+            cert_path=data.get('certPath', ''),
+            private_key_path=data.get('privateKeyPath', ''),
+            signing_alg=data.get('signingAlg', 'es256')
         )
         
         processor.check_dependencies()
@@ -290,7 +508,12 @@ def process():
         return jsonify({'success': True, 'log': log})
     
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e), 'log': getattr(processor, 'log', [])})
+        log_content = '\n'.join(processor.log) if processor and hasattr(processor, 'log') else ''
+        return jsonify({
+            'success': False, 
+            'error': str(e), 
+            'log': log_content
+        })
 
 def run_cli():
     parser = argparse.ArgumentParser(
@@ -310,7 +533,14 @@ def run_cli():
     parser.add_argument('--usage-terms', default='', help='License / usage terms')
     parser.add_argument('--license-url', default='', help='License URL')
     
-    # Remove the '--cli' argument before parsing
+    # C2PA signing arguments
+    parser.add_argument('--sign-images', action='store_true', help='Sign images with C2PA')
+    parser.add_argument('--cert', default='', help='Path to C2PA certificate file')
+    parser.add_argument('--private-key', default='', help='Path to private key file')
+    parser.add_argument('--signing-alg', default='es256', 
+                       choices=['es256', 'es384', 'es512', 'ps256', 'ps384', 'ps512', 'ed25519'],
+                       help='Signing algorithm (default: es256)')
+    
     args = parser.parse_args(sys.argv[2:])
     
     try:
@@ -325,7 +555,11 @@ def run_cli():
             credit=args.credit,
             copyright_name=args.copyright,
             usage_terms=args.usage_terms,
-            license_url=args.license_url
+            license_url=args.license_url,
+            sign_images=args.sign_images,
+            cert_path=args.cert,
+            private_key_path=args.private_key,
+            signing_alg=args.signing_alg
         )
         
         processor.check_dependencies()

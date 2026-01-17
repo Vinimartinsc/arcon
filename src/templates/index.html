@@ -78,6 +78,38 @@
                        placeholder="https://creativecommons.org/licenses/by/4.0/">
             </div>
 
+            <div class="section-title">C2PA Signing (Optional)</div>
+
+            <div class="form-group">
+                <input type="checkbox" id="signImages" name="signImages">
+                <label for="signImages" style="margin: 0;">Sign images with C2PA</label>
+            </div>
+
+            <div class="form-group">
+                <label for="certPath">Certificate Path (required if signing)</label>
+                <input type="text" id="certPath" name="certPath" 
+                       placeholder="/path/to/certificate.pem">
+            </div>
+
+            <div class="form-group">
+                <label for="privateKeyPath">Private Key Path (required if signing)</label>
+                <input type="text" id="privateKeyPath" name="privateKeyPath" 
+                       placeholder="/path/to/private_key.pem">
+            </div>
+
+            <div class="form-group">
+                <label for="signingAlg">Signing Algorithm</label>
+                <select id="signingAlg" name="signingAlg">
+                    <option value="es256">ES256</option>
+                    <option value="es384">ES384</option>
+                    <option value="es512">ES512</option>
+                    <option value="ps256">PS256</option>
+                    <option value="ps384">PS384</option>
+                    <option value="ps512">PS512</option>
+                    <option value="ed25519">ED25519</option>
+                </select>
+            </div>
+
             <div style="display: flex; gap: 10px;">
                 <button type="submit" id="submitBtn">Start Processing</button>
             </div>
