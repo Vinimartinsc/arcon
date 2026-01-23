@@ -463,8 +463,8 @@ class ImageProcessor:
             "data": {
                 "actions": [{
                     "action": "c2pa.edited",
-                    "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
-                    "softwareAgent": "Image Archive Processor/1.0"
+                    "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture ",
+                    "softwareAgent": "Image Archive Converter/1.0"
                 }]
             }
         })
