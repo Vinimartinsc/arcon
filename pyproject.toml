@@ -1,0 +1,60 @@
+[project]
+name = "arcon"
+version = "1.0.1"
+description = "An open-source still image processing tool designed to support archival digitization workflows."
+requires-python = ">=3.8"
+license = {file = "./LICENSE"}
+keywords = ["open-source", "image-conversion"]
+authors = [
+  {name = "Vinícius Martins"},
+]
+dependencies = [
+    "Flask>=3.1.0,<4.0.0",
+    "c2pa-python>=0.27.0,<1.0.0",
+    "requests>=2.32.0,<3.0.0",
+    "cryptography>=46.0.0,<47.0.0",
+    "click>=8.1.0,<9.0.0",
+    "Jinja2>=3.1.0,<4.0.0",
+    "Werkzeug>=3.1.0,<4.0.0",
+    "certifi>=2024.0.0",
+    "charset-normalizer>=3.4.0,<4.0.0",
+    "idna>=3.11,<4.0.0",
+    "urllib3>=2.6.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0,<10.0.0",
+]
+build = [
+    "pyinstaller>=6.17.0,<7.0.0",
+    "pyinstaller-hooks-contrib>=2025.11,<2026.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Vinimartinsc/arcon"
+"Source Code" = "https://github.com/Vinimartinsc/arcon"
+Documentation = "https://github.com/Vinimartinsc/arcon"
+"Bug Tracker" = "https://github.com/Vinimartinsc/arcon/issues"
+
+[build-system]
+requires = ["setuptools>=80.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["arcon"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+arcon = [
+    "templates/**/*",
+    "static/**/*",
+    "bundle/windows/**/*",
+    "bundle/unix/**/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
