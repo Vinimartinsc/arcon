@@ -29,7 +29,9 @@ except ImportError:
     C2PA_AVAILABLE = False
 
 app = Flask(__name__)
-
+APP_VERSION="1.1.0"
+APP_SIMPLE_VERSION=f"{APP_VERSION.split('.')[0]}.{APP_VERSION.split('.')[1]}"
+APP_NAME="Image Archive Convertion Tool"
 
 class ImageProcessor:
     """Class to handle image processing and metadata application."""
@@ -487,7 +489,7 @@ class ImageProcessor:
     def _build_manifest_json(self, image_path):
         """Build C2PA manifest JSON for an image."""
         manifest = {
-            "claim_generator": "Image Archive Processor/1.0",
+            "claim_generator": f"{APP_NAME}/{APP_SIMPLE_VERSION}",
             "title": image_path.name,
             "assertions": [],
         }
@@ -550,7 +552,7 @@ class ImageProcessor:
                         {
                             "action": "c2pa.edited",
                             "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture ",
-                            "softwareAgent": "Image Archive Converter/1.0",
+                            "softwareAgent": f"{APP_NAME}/{APP_SIMPLE_VERSION}",
                         }
                     ]
                 },
