@@ -1,15 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
+
+from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules
+
+c2pa_binaries = collect_dynamic_libs("c2pa")
+c2pa_hiddenimports = collect_submodules("c2pa")
+
 a = Analysis(
     ['src/app.py'],
     pathex=[],
-    binaries=[],
+    binaries=c2pa_binaries,
     datas=[
         ('src/templates', 'templates'),
         ('src/static', 'static'),
         ('bundle/windows', 'bundle/windows'),
         ('bundle/unix', 'bundle/unix'),
     ],
-    hiddenimports=['flask', 'flask.cli'],
+    hiddenimports=[
+        'flask',
+        'flask.cli',
+        *c2pa_hiddenimports,
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
